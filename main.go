@@ -11,14 +11,26 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// imagePaths holds the list of selected image file paths.
-var imagePaths []string
-
 func main() {
 	a := app.New()
 	w := a.NewWindow("go-pdf")
 
 	countLabel := widget.NewLabel("No images selected")
+
+	il := newImageList(func() {
+		if il := countLabel; il != nil {
+			countLabel.SetText(fmt.Sprintf("%d image(s) selected", 0))
+		}
+	})
+
+	// Override onUpdate now that countLabel exists.
+	il.onUpdate = func() {
+		if il.count() == 0 {
+			countLabel.SetText("No images selected")
+		} else {
+			countLabel.SetText(fmt.Sprintf("%d image(s) selected", il.count()))
+		}
+	}
 
 	addBtn := widget.NewButton("Add Image", func() {
 		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
@@ -26,8 +38,7 @@ func main() {
 				return
 			}
 			defer reader.Close()
-			imagePaths = append(imagePaths, reader.URI().Path())
-			countLabel.SetText(fmt.Sprintf("%d image(s) selected", len(imagePaths)))
+			il.add(reader.URI().Path())
 		}, w)
 
 		fd.SetFilter(storage.NewExtensionFileFilter([]string{".jpg", ".jpeg", ".png"}))
@@ -35,10 +46,21 @@ func main() {
 		fd.Show()
 	})
 
-	w.SetContent(container.NewVBox(
-		widget.NewLabel("Image to PDF Converter"),
-		addBtn,
-		countLabel,
+	w.SetContent(container.NewBorder(
+		// top
+		container.NewVBox(
+			widget.NewLabel("Image to PDF Converter"),
+			container.NewHBox(addBtn),
+			countLabel,
+		),
+		// bottom
+		nil,
+		// left
+		nil,
+		// right
+		nil,
+		// center (fills remaining space)
+		il.widget,
 	))
 
 	w.Resize(fyne.NewSize(500, 400))

@@ -53,13 +53,25 @@ func main() {
 			statusLabel.SetText("No images to convert.")
 			return
 		}
-		statusLabel.SetText("Converting...")
-		err := generatePDF(il.paths, "output.pdf")
-		if err != nil {
-			statusLabel.SetText("Error: " + err.Error())
-		} else {
-			statusLabel.SetText("Done: output.pdf created.")
-		}
+
+		sd := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
+			if err != nil || writer == nil {
+				return
+			}
+			outputPath := writer.URI().Path()
+			writer.Close()
+
+			statusLabel.SetText("Converting...")
+			if genErr := generatePDF(il.paths, outputPath); genErr != nil {
+				statusLabel.SetText("Error: " + genErr.Error())
+			} else {
+				statusLabel.SetText("Done: " + outputPath)
+			}
+		}, w)
+
+		sd.SetFileName("output.pdf")
+		sd.SetTitleText("Save PDF")
+		sd.Show()
 	})
 
 	w.SetContent(container.NewBorder(

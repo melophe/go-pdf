@@ -46,15 +46,31 @@ func main() {
 		fd.Show()
 	})
 
+	statusLabel := widget.NewLabel("")
+
+	convertBtn := widget.NewButton("Convert to PDF", func() {
+		if il.count() == 0 {
+			statusLabel.SetText("No images to convert.")
+			return
+		}
+		statusLabel.SetText("Converting...")
+		err := generatePDF(il.paths, "output.pdf")
+		if err != nil {
+			statusLabel.SetText("Error: " + err.Error())
+		} else {
+			statusLabel.SetText("Done: output.pdf created.")
+		}
+	})
+
 	w.SetContent(container.NewBorder(
 		// top
 		container.NewVBox(
 			widget.NewLabel("Image to PDF Converter"),
-			container.NewHBox(addBtn),
+			container.NewHBox(addBtn, convertBtn),
 			countLabel,
 		),
 		// bottom
-		nil,
+		statusLabel,
 		// left
 		nil,
 		// right

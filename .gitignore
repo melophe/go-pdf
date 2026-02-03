@@ -1,0 +1,14 @@
+CLAUDE.md
+/.claude
+
+# Go binary
+/go-pdf
+/go-pdf.exe
+
+# IDE settings
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -10,6 +13,26 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 )
+
+// scanImages returns all JPG/PNG file paths in the given directory (non-recursive).
+func scanImages(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	var paths []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(e.Name()))
+		if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
+			paths = append(paths, filepath.Join(dir, e.Name()))
+		}
+	}
+	return paths, nil
+}
 
 func main() {
 	a := app.New()
@@ -48,6 +71,24 @@ func main() {
 
 	statusLabel := widget.NewLabel("")
 
+	addFolderBtn := widget.NewButton("Add Folder", func() {
+		fd := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+			if err != nil || uri == nil {
+				return
+			}
+			imgs, scanErr := scanImages(uri.Path())
+			if scanErr != nil {
+				statusLabel.SetText("Error: " + scanErr.Error())
+				return
+			}
+			for _, p := range imgs {
+				il.add(p)
+			}
+		}, w)
+		fd.SetTitleText("Select Folder")
+		fd.Show()
+	})
+
 	convertBtn := widget.NewButton("Convert to PDF", func() {
 		if il.count() == 0 {
 			statusLabel.SetText("No images to convert.")
@@ -78,7 +119,7 @@ func main() {
 		// top
 		container.NewVBox(
 			widget.NewLabel("Image to PDF Converter"),
-			container.NewHBox(addBtn, convertBtn),
+			container.NewHBox(addBtn, addFolderBtn, convertBtn),
 			countLabel,
 		),
 		// bottom

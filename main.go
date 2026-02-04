@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -31,6 +32,13 @@ func scanImages(dir string) ([]string, error) {
 			paths = append(paths, filepath.Join(dir, e.Name()))
 		}
 	}
+	// Sort by modification time, newest first.
+	sort.Slice(paths, func(i, j int) bool {
+		fi, _ := os.Stat(paths[i])
+		fj, _ := os.Stat(paths[j])
+		return fi.ModTime().After(fj.ModTime())
+	})
+
 	return paths, nil
 }
 

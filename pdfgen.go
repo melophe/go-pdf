@@ -12,20 +12,32 @@ import (
 	"github.com/go-pdf/fpdf"
 )
 
+// PageSizeMode controls how the page size is determined.
+type PageSizeMode int
+
 const (
-	// A4 portrait dimensions in millimeters.
-	pageWidth  = 210.0
-	pageHeight = 297.0
-	// Margin around the image in millimeters.
-	margin = 10.0
+	// PageSizeA4 uses fixed A4 portrait (210x297 mm) for every page.
+	PageSizeA4 PageSizeMode = iota
+	// PageSizeFitImage sets each page size to match the image dimensions.
+	PageSizeFitImage
 )
 
-// generatePDF creates a PDF file from the given image paths and writes it to outputPath.
-func generatePDF(imagePaths []string, outputPath string) error {
+const (
+	// A4 portrait dimensions in millimeters.
+	a4Width  = 210.0
+	a4Height = 297.0
+	// Margin around the image in millimeters (used only in A4 mode).
+	margin = 10.0
+	// Pixels per inch assumed when converting pixel size to mm.
+	dpi = 96.0
+)
+
+// generatePDF creates a PDF from image paths using the given page size mode.
+func generatePDF(imagePaths []string, outputPath string, mode PageSizeMode) error {
 	pdf := fpdf.New("P", "mm", "A4", "")
 
 	for _, imgPath := range imagePaths {
-		if err := addImagePage(pdf, imgPath); err != nil {
+		if err := addImagePage(pdf, imgPath, mode); err != nil {
 			return fmt.Errorf("failed to add %s: %w", filepath.Base(imgPath), err)
 		}
 	}
@@ -33,39 +45,64 @@ func generatePDF(imagePaths []string, outputPath string) error {
 	return pdf.OutputFileAndClose(outputPath)
 }
 
-// addImagePage adds a new page with the given image, auto-resized to fit within A4 margins.
-func addImagePage(pdf *fpdf.Fpdf, imgPath string) error {
-	// Get image dimensions in pixels.
+// addImagePage adds a single page with the image, using the chosen page size mode.
+func addImagePage(pdf *fpdf.Fpdf, imgPath string, mode PageSizeMode) error {
 	w, h, err := getImageSize(imgPath)
 	if err != nil {
 		return err
 	}
 
-	// Calculate the available area inside margins.
-	availW := pageWidth - margin*2
-	availH := pageHeight - margin*2
+	imgType := detectImageType(imgPath)
 
-	// Scale image to fit within available area while keeping aspect ratio.
-	scaleW := availW / float64(w)
-	scaleH := availH / float64(h)
-	scale := scaleW
-	if scaleH < scaleW {
-		scale = scaleH
+	switch mode {
+	case PageSizeFitImage:
+		return addFitToImagePage(pdf, imgPath, imgType, w, h)
+	default:
+		return addA4Page(pdf, imgPath, imgType, w, h)
 	}
+}
+
+// addA4Page places the image centered on an A4 page, scaled to fit within margins.
+func addA4Page(pdf *fpdf.Fpdf, imgPath, imgType string, w, h int) error {
+	availW := a4Width - margin*2
+	availH := a4Height - margin*2
+
+	scale := fitScale(float64(w), float64(h), availW, availH)
 	imgW := float64(w) * scale
 	imgH := float64(h) * scale
 
-	// Center the image on the page.
-	x := (pageWidth - imgW) / 2
-	y := (pageHeight - imgH) / 2
-
-	// Determine image type from extension.
-	imgType := detectImageType(imgPath)
+	x := (a4Width - imgW) / 2
+	y := (a4Height - imgH) / 2
 
 	pdf.AddPage()
 	pdf.Image(imgPath, x, y, imgW, imgH, false, imgType, 0, "")
-
 	return nil
+}
+
+// addFitToImagePage sets the page size to the image dimensions (no margin, no scaling).
+func addFitToImagePage(pdf *fpdf.Fpdf, imgPath, imgType string, w, h int) error {
+	// Convert pixel dimensions to mm at the assumed DPI.
+	pageW := pixelToMm(float64(w))
+	pageH := pixelToMm(float64(h))
+
+	pdf.AddPageFormat("", fpdf.SizeType{Wd: pageW, Ht: pageH})
+	pdf.Image(imgPath, 0, 0, pageW, pageH, false, imgType, 0, "")
+	return nil
+}
+
+// fitScale returns the scale factor to fit (srcW x srcH) into (maxW x maxH) while keeping aspect ratio.
+func fitScale(srcW, srcH, maxW, maxH float64) float64 {
+	scaleW := maxW / srcW
+	scaleH := maxH / srcH
+	if scaleH < scaleW {
+		return scaleH
+	}
+	return scaleW
+}
+
+// pixelToMm converts pixels to millimeters at the package-level DPI.
+func pixelToMm(px float64) float64 {
+	return px / dpi * 25.4
 }
 
 // getImageSize returns the width and height in pixels of an image file.

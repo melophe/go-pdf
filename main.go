@@ -89,6 +89,11 @@ func main() {
 		fd.Show()
 	})
 
+	// Page size selector: index matches PageSizeMode order.
+	pageSizeOptions := []string{"A4", "Fit to image"}
+	pageSizeSelect := widget.NewSelect(pageSizeOptions, nil)
+	pageSizeSelect.Selected = "A4"
+
 	convertBtn := widget.NewButton("Convert to PDF", func() {
 		if il.count() == 0 {
 			statusLabel.SetText("No images to convert.")
@@ -102,8 +107,13 @@ func main() {
 			outputPath := writer.URI().Path()
 			writer.Close()
 
+			mode := PageSizeA4
+			if pageSizeSelect.Selected == "Fit to image" {
+				mode = PageSizeFitImage
+			}
+
 			statusLabel.SetText("Converting...")
-			if genErr := generatePDF(il.paths, outputPath); genErr != nil {
+			if genErr := generatePDF(il.paths, outputPath, mode); genErr != nil {
 				statusLabel.SetText("Error: " + genErr.Error())
 			} else {
 				statusLabel.SetText("Done: " + outputPath)
@@ -120,6 +130,7 @@ func main() {
 		container.NewVBox(
 			widget.NewLabel("Image to PDF Converter"),
 			container.NewHBox(addBtn, addFolderBtn, convertBtn),
+			container.NewHBox(widget.NewLabel("Page size:"), pageSizeSelect),
 			countLabel,
 		),
 		// bottom

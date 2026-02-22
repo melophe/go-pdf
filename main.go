@@ -35,7 +35,10 @@ func naturalLess(a, b string) bool {
 	return a < b
 }
 
-const prefKeyDefaultFolder = "defaultFolder"
+const (
+	prefKeyDefaultFolder = "defaultFolder"
+	prefKeyOutputFolder  = "outputFolder"
+)
 
 // scanImages returns all JPG/PNG file paths in the given directory (non-recursive).
 func scanImages(dir string) ([]string, error) {
@@ -153,6 +156,9 @@ func main() {
 			outputPath := writer.URI().Path()
 			writer.Close()
 
+			// Remember output folder for next time.
+			a.Preferences().SetString(prefKeyOutputFolder, filepath.Dir(outputPath))
+
 			mode := PageSizeA4
 			if pageSizeSelect.Selected == "Fit to image" {
 				mode = PageSizeFitImage
@@ -166,7 +172,21 @@ func main() {
 			}
 		}, w)
 
-		sd.SetFileName("output.pdf")
+		// Set default filename from first image.
+		firstImage := filepath.Base(il.paths[0])
+		ext := filepath.Ext(firstImage)
+		defaultName := strings.TrimSuffix(firstImage, ext) + ".pdf"
+		sd.SetFileName(defaultName)
+
+		// Set starting location to last used output folder.
+		outputFolder := a.Preferences().String(prefKeyOutputFolder)
+		if outputFolder != "" {
+			uri, err := storage.ListerForURI(storage.NewFileURI(outputFolder))
+			if err == nil {
+				sd.SetLocation(uri)
+			}
+		}
+
 		sd.SetTitleText("Save PDF")
 		sd.Show()
 	})

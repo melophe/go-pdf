@@ -34,14 +34,9 @@ func scanImages(dir string) ([]string, error) {
 			paths = append(paths, filepath.Join(dir, e.Name()))
 		}
 	}
-	// Sort by modification time, newest first.
+	// Sort by filename ascending.
 	sort.Slice(paths, func(i, j int) bool {
-		fi, errI := os.Stat(paths[i])
-		fj, errJ := os.Stat(paths[j])
-		if errI != nil || errJ != nil {
-			return false
-		}
-		return fi.ModTime().After(fj.ModTime())
+		return filepath.Base(paths[i]) < filepath.Base(paths[j])
 	})
 
 	return paths, nil

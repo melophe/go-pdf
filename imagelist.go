@@ -35,9 +35,10 @@ func newImageList(onUpdate func()) *imageList {
 			label := row.Objects[0].(*widget.Label)
 			btn := row.Objects[1].(*widget.Button)
 
-			label.SetText(filepath.Base(il.paths[id]))
+			idx := int(id) // capture id as local variable for closure
+			label.SetText(filepath.Base(il.paths[idx]))
 			btn.OnTapped = func() {
-				il.remove(int(id))
+				il.remove(idx)
 			}
 		},
 	)
@@ -52,6 +53,9 @@ func (il *imageList) add(path string) {
 }
 
 func (il *imageList) remove(index int) {
+	if index < 0 || index >= len(il.paths) {
+		return
+	}
 	il.paths = append(il.paths[:index], il.paths[index+1:]...)
 	il.widget.Refresh()
 	il.onUpdate()

@@ -34,8 +34,11 @@ func scanImages(dir string) ([]string, error) {
 	}
 	// Sort by modification time, newest first.
 	sort.Slice(paths, func(i, j int) bool {
-		fi, _ := os.Stat(paths[i])
-		fj, _ := os.Stat(paths[j])
+		fi, errI := os.Stat(paths[i])
+		fj, errJ := os.Stat(paths[j])
+		if errI != nil || errJ != nil {
+			return false
+		}
 		return fi.ModTime().After(fj.ModTime())
 	})
 
@@ -48,20 +51,14 @@ func main() {
 
 	countLabel := widget.NewLabel("No images selected")
 
-	il := newImageList(func() {
-		if il := countLabel; il != nil {
-			countLabel.SetText(fmt.Sprintf("%d image(s) selected", 0))
-		}
-	})
-
-	// Override onUpdate now that countLabel exists.
-	il.onUpdate = func() {
+	var il *imageList
+	il = newImageList(func() {
 		if il.count() == 0 {
 			countLabel.SetText("No images selected")
 		} else {
 			countLabel.SetText(fmt.Sprintf("%d image(s) selected", il.count()))
 		}
-	}
+	})
 
 	addBtn := widget.NewButton("Add Image", func() {
 		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {

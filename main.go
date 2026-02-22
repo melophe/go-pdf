@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -14,6 +16,24 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 )
+
+var numRegex = regexp.MustCompile(`\d+`)
+
+// naturalLess compares two strings in natural order (1, 2, 10, 20 instead of 1, 10, 2, 20).
+func naturalLess(a, b string) bool {
+	aNums := numRegex.FindAllString(a, -1)
+	bNums := numRegex.FindAllString(b, -1)
+
+	// If both have numbers, compare the first number.
+	if len(aNums) > 0 && len(bNums) > 0 {
+		aNum, _ := strconv.Atoi(aNums[0])
+		bNum, _ := strconv.Atoi(bNums[0])
+		if aNum != bNum {
+			return aNum < bNum
+		}
+	}
+	return a < b
+}
 
 const prefKeyDefaultFolder = "defaultFolder"
 
@@ -34,9 +54,9 @@ func scanImages(dir string) ([]string, error) {
 			paths = append(paths, filepath.Join(dir, e.Name()))
 		}
 	}
-	// Sort by filename ascending.
+	// Sort by filename in natural order (1, 2, 10 instead of 1, 10, 2).
 	sort.Slice(paths, func(i, j int) bool {
-		return filepath.Base(paths[i]) < filepath.Base(paths[j])
+		return naturalLess(filepath.Base(paths[i]), filepath.Base(paths[j]))
 	})
 
 	return paths, nil

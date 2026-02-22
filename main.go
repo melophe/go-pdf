@@ -15,6 +15,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+const prefKeyDefaultFolder = "defaultFolder"
+
 // scanImages returns all JPG/PNG file paths in the given directory (non-recursive).
 func scanImages(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
@@ -46,10 +48,11 @@ func scanImages(dir string) ([]string, error) {
 }
 
 func main() {
-	a := app.New()
+	a := app.NewWithID("com.losts.go-pdf")
 	w := a.NewWindow("go-pdf")
 
 	countLabel := widget.NewLabel("No images selected")
+	statusLabel := widget.NewLabel("")
 
 	var il *imageList
 	il = newImageList(func() {
@@ -59,6 +62,18 @@ func main() {
 			countLabel.SetText(fmt.Sprintf("%d image(s) selected", il.count()))
 		}
 	})
+
+	// Load images from default folder on startup.
+	defaultFolder := a.Preferences().String(prefKeyDefaultFolder)
+	if defaultFolder != "" {
+		imgs, err := scanImages(defaultFolder)
+		if err == nil {
+			for _, p := range imgs {
+				il.add(p)
+			}
+			statusLabel.SetText("Loaded from: " + defaultFolder)
+		}
+	}
 
 	addBtn := widget.NewButton("Add Image", func() {
 		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
@@ -73,8 +88,6 @@ func main() {
 		fd.SetTitleText("Select Image")
 		fd.Show()
 	})
-
-	statusLabel := widget.NewLabel("")
 
 	addFolderBtn := widget.NewButton("Add Folder", func() {
 		fd := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
@@ -91,6 +104,19 @@ func main() {
 			}
 		}, w)
 		fd.SetTitleText("Select Folder")
+		fd.Show()
+	})
+
+	setDefaultBtn := widget.NewButton("Set Default", func() {
+		fd := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
+			if err != nil || uri == nil {
+				return
+			}
+			folder := uri.Path()
+			a.Preferences().SetString(prefKeyDefaultFolder, folder)
+			statusLabel.SetText("Default folder set: " + folder)
+		}, w)
+		fd.SetTitleText("Set Default Folder")
 		fd.Show()
 	})
 
@@ -134,7 +160,7 @@ func main() {
 		// top
 		container.NewVBox(
 			widget.NewLabel("Image to PDF Converter"),
-			container.NewHBox(addBtn, addFolderBtn, convertBtn),
+			container.NewHBox(addBtn, addFolderBtn, setDefaultBtn, convertBtn),
 			container.NewHBox(widget.NewLabel("Page size:"), pageSizeSelect),
 			countLabel,
 		),

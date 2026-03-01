@@ -209,6 +209,28 @@ func main() {
 		il.widget,
 	))
 
+	// Handle drag and drop of image files.
+	w.SetOnDropped(func(_ fyne.Position, uris []fyne.URI) {
+		var dropped []string
+		for _, uri := range uris {
+			path := uri.Path()
+			ext := strings.ToLower(filepath.Ext(path))
+			if ext == ".jpg" || ext == ".jpeg" || ext == ".png" {
+				dropped = append(dropped, path)
+			}
+		}
+		// Sort dropped files in natural order.
+		sort.Slice(dropped, func(i, j int) bool {
+			return naturalLess(filepath.Base(dropped[i]), filepath.Base(dropped[j]))
+		})
+		for _, p := range dropped {
+			il.add(p)
+		}
+		if len(dropped) > 0 {
+			statusLabel.SetText(fmt.Sprintf("Dropped %d image(s)", len(dropped)))
+		}
+	})
+
 	w.Resize(fyne.NewSize(500, 400))
 	w.ShowAndRun()
 }

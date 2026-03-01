@@ -167,9 +167,17 @@ func main() {
 			statusLabel.SetText("Converting...")
 			if genErr := generatePDF(il.paths, outputPath, mode); genErr != nil {
 				statusLabel.SetText("Error: " + genErr.Error())
-			} else {
-				statusLabel.SetText("Done: " + outputPath)
+				return
 			}
+
+			// Generate ZIP with original images alongside PDF.
+			zipPath := strings.TrimSuffix(outputPath, ".pdf") + ".zip"
+			if zipErr := generateZIP(il.paths, zipPath); zipErr != nil {
+				statusLabel.SetText("PDF done, ZIP error: " + zipErr.Error())
+				return
+			}
+
+			statusLabel.SetText("Done: " + outputPath + " & .zip")
 		}, w)
 
 		// Set default filename from first image.

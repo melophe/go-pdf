@@ -71,6 +71,7 @@ func main() {
 
 	countLabel := widget.NewLabel("No images selected")
 	statusLabel := widget.NewLabel("")
+	progressBar := widget.NewProgressBar()
 
 	var il *imageList
 	il = newImageList(func() {
@@ -164,20 +165,39 @@ func main() {
 				mode = PageSizeFitImage
 			}
 
-			statusLabel.SetText("Converting...")
-			if genErr := generatePDF(il.paths, outputPath, mode); genErr != nil {
-				statusLabel.SetText("Error: " + genErr.Error())
-				return
-			}
+			// Run conversion in background goroutine.
+			paths := make([]string, len(il.paths))
+			copy(paths, il.paths)
+			total := len(paths)
 
-			// Generate ZIP with original images alongside PDF.
-			zipPath := strings.TrimSuffix(outputPath, ".pdf") + ".zip"
-			if zipErr := generateZIP(il.paths, zipPath); zipErr != nil {
-				statusLabel.SetText("PDF done, ZIP error: " + zipErr.Error())
-				return
-			}
+			go func() {
+				progressBar.SetValue(0)
+				statusLabel.SetText("Generating PDF...")
 
-			statusLabel.SetText("Done: " + outputPath + " & .zip")
+				// Generate PDF with progress callback.
+				pdfErr := generatePDFWithProgress(paths, outputPath, mode, func(current int) {
+					progressBar.SetValue(float64(current) / float64(total) * 0.5)
+					statusLabel.SetText(fmt.Sprintf("PDF: %d/%d", current, total))
+				})
+				if pdfErr != nil {
+					statusLabel.SetText("Error: " + pdfErr.Error())
+					return
+				}
+
+				// Generate ZIP with progress callback.
+				zipPath := strings.TrimSuffix(outputPath, ".pdf") + ".zip"
+				zipErr := generateZIPWithProgress(paths, zipPath, func(current int) {
+					progressBar.SetValue(0.5 + float64(current)/float64(total)*0.5)
+					statusLabel.SetText(fmt.Sprintf("ZIP: %d/%d", current, total))
+				})
+				if zipErr != nil {
+					statusLabel.SetText("PDF done, ZIP error: " + zipErr.Error())
+					return
+				}
+
+				progressBar.SetValue(1.0)
+				statusLabel.SetText("Done: " + outputPath + " & .zip")
+			}()
 		}, w)
 
 		// Set default filename from first image.
@@ -206,6 +226,7 @@ func main() {
 			container.NewHBox(addBtn, addFolderBtn, setDefaultBtn, convertBtn),
 			container.NewHBox(widget.NewLabel("Page size:"), pageSizeSelect),
 			countLabel,
+			progressBar,
 		),
 		// bottom
 		statusLabel,

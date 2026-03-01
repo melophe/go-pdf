@@ -34,11 +34,19 @@ const (
 
 // generatePDF creates a PDF from image paths using the given page size mode.
 func generatePDF(imagePaths []string, outputPath string, mode PageSizeMode) error {
+	return generatePDFWithProgress(imagePaths, outputPath, mode, nil)
+}
+
+// generatePDFWithProgress creates a PDF with a progress callback.
+func generatePDFWithProgress(imagePaths []string, outputPath string, mode PageSizeMode, onProgress func(current int)) error {
 	pdf := fpdf.New("P", "mm", "A4", "")
 
-	for _, imgPath := range imagePaths {
+	for i, imgPath := range imagePaths {
 		if err := addImagePage(pdf, imgPath, mode); err != nil {
 			return fmt.Errorf("failed to add %s: %w", filepath.Base(imgPath), err)
+		}
+		if onProgress != nil {
+			onProgress(i + 1)
 		}
 	}
 

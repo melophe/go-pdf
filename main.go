@@ -141,7 +141,7 @@ func main() {
 	// Page size selector: index matches PageSizeMode order.
 	pageSizeOptions := []string{"A4", "Fit to image"}
 	pageSizeSelect := widget.NewSelect(pageSizeOptions, nil)
-	pageSizeSelect.Selected = "A4"
+	pageSizeSelect.Selected = "Fit to image"
 
 	convertBtn := widget.NewButton("Convert to PDF", func() {
 		if il.count() == 0 {

@@ -169,29 +169,50 @@ func main() {
 			paths := make([]string, len(il.paths))
 			copy(paths, il.paths)
 			total := len(paths)
+			zipPath := strings.TrimSuffix(outputPath, ".pdf") + ".zip"
 
 			go func() {
 				progressBar.SetValue(0)
-				statusLabel.SetText("Generating PDF...")
+				statusLabel.SetText("Converting...")
 
-				// Generate PDF with progress callback.
-				pdfErr := generatePDFWithProgress(paths, outputPath, mode, func(current int) {
-					progressBar.SetValue(float64(current) / float64(total) * 0.5)
-					statusLabel.SetText(fmt.Sprintf("PDF: %d/%d", current, total))
-				})
-				if pdfErr != nil {
-					statusLabel.SetText("Error: " + pdfErr.Error())
-					return
+				// Track progress from both PDF and ZIP.
+				var pdfProgress, zipProgress int
+				updateProgress := func() {
+					combined := float64(pdfProgress+zipProgress) / float64(total*2)
+					progressBar.SetValue(combined)
+					statusLabel.SetText(fmt.Sprintf("PDF: %d/%d, ZIP: %d/%d", pdfProgress, total, zipProgress, total))
 				}
 
-				// Generate ZIP with progress callback.
-				zipPath := strings.TrimSuffix(outputPath, ".pdf") + ".zip"
-				zipErr := generateZIPWithProgress(paths, zipPath, func(current int) {
-					progressBar.SetValue(0.5 + float64(current)/float64(total)*0.5)
-					statusLabel.SetText(fmt.Sprintf("ZIP: %d/%d", current, total))
-				})
+				// Run PDF and ZIP generation in parallel.
+				var pdfErr, zipErr error
+				done := make(chan struct{}, 2)
+
+				go func() {
+					pdfErr = generatePDFWithProgress(paths, outputPath, mode, func(current int) {
+						pdfProgress = current
+						updateProgress()
+					})
+					done <- struct{}{}
+				}()
+
+				go func() {
+					zipErr = generateZIPWithProgress(paths, zipPath, func(current int) {
+						zipProgress = current
+						updateProgress()
+					})
+					done <- struct{}{}
+				}()
+
+				// Wait for both to complete.
+				<-done
+				<-done
+
+				if pdfErr != nil {
+					statusLabel.SetText("PDF error: " + pdfErr.Error())
+					return
+				}
 				if zipErr != nil {
-					statusLabel.SetText("PDF done, ZIP error: " + zipErr.Error())
+					statusLabel.SetText("ZIP error: " + zipErr.Error())
 					return
 				}
 
